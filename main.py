@@ -4,12 +4,10 @@ from telethon.sessions import StringSession
 from flask_cors import CORS
 import os
 import asyncio
-from dotenv import load_dotenv
 
-load_dotenv()
-
-API_ID = int(os.getenv("API_ID"))
-API_HASH = os.getenv("API_HASH")
+# Langsung isi manual
+API_ID = 28723467  # ← Ganti dengan API ID kamu
+API_HASH = "f51ed0208b47cfd04dc6409d64aa5bef"  # ← Ganti dengan API HASH kamu
 
 SESSION_DIR = "session"
 if not os.path.exists(SESSION_DIR):
@@ -35,7 +33,7 @@ def send_code():
 
     async def send():
         async with TelegramClient(f"{SESSION_DIR}/{phone}", API_ID, API_HASH) as client:
-            await client.start(phone=phone)  # Kirim kode OTP otomatis
+            await client.send_code_request(phone)
         return {"status": "code_sent"}
 
     try:
