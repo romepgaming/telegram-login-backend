@@ -33,7 +33,7 @@ def send_code():
 
     async def send():
         async with TelegramClient(f"{SESSION_DIR}/{phone}", API_ID, API_HASH) as client:
-            await client.send_code_request(phone)
+            await client.start(phone=phone)
         return {"status": "code_sent"}
 
     try:
