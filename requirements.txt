@@ -1,4 +1,4 @@
-Flask
 telethon
-python-dotenv
-Flask-CORS
+flask
+flask-cors
+nest_asyncio
