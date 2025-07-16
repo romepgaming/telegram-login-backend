@@ -23,7 +23,6 @@ CORS(app)
 @app.route("/")
 def home():
     return "✅ Telegram Login Backend Aktif"
-
 @app.route("/send_code", methods=["POST"])
 def send_code():
     data = request.json
@@ -36,7 +35,6 @@ def send_code():
 
     async def send():
         async with TelegramClient(f"{SESSION_DIR}/{phone}", API_ID, API_HASH) as client:
-            await client.connect()
             result = await client.send_code_request(phone)
         return {"status": "code_sent", "phone_code_hash": result.phone_code_hash}
 
