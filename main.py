@@ -32,9 +32,18 @@ def send_code():
     loop = asyncio.get_event_loop()
 
     async def send():
-        async with TelegramClient(f"{SESSION_DIR}/{phone}", API_ID, API_HASH) as client:
-            result = await client.send_code_request(phone)
-        return {"status": "code_sent", "phone_code_hash": result.phone_code_hash}
+        client = TelegramClient(StringSession(), API_ID, API_HASH)
+        await client.connect()
+        result = await client.send_code_request(phone)
+        await client.disconnect()
+
+        # Simpan session kosong sementara
+        session_str = StringSession.save(client.session)
+        return {
+            "status": "code_sent",
+            "phone_code_hash": result.phone_code_hash,
+            "session": session_str
+        }
 
     try:
         result = loop.run_until_complete(send())
@@ -47,13 +56,16 @@ def verify_code():
     data = request.json
     phone = data.get("phone")
     code = data.get("code")
+    session_str = data.get("session")
 
     loop = asyncio.get_event_loop()
 
     async def verify():
-        async with TelegramClient(f"{SESSION_DIR}/{phone}", API_ID, API_HASH) as client:
-            await client.sign_in(phone=phone, code=code)
-            session_str = StringSession.save(client.session)
+        client = TelegramClient(StringSession(session_str), API_ID, API_HASH)
+        await client.connect()
+        await client.sign_in(phone=phone, code=code)
+        session_str = StringSession.save(client.session)
+        await client.disconnect()
         return {"status": "logged_in", "session": session_str}
 
     try:
