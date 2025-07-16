@@ -1,21 +1,22 @@
 from flask import Flask, request, jsonify
-from flask_cors import CORS
 from telethon import TelegramClient
 from telethon.sessions import StringSession
-import asyncio
+from flask_cors import CORS
 import os
-import nest_asyncio
+import asyncio
+import nest_asyncio  # ← WAJIB
+nest_asyncio.apply()  # ← WAJIB
 
-nest_asyncio.apply()
-
-# Ganti sesuai milik kamu
+# API ID dan HASH
 API_ID = 28723467
 API_HASH = "f51ed0208b47cfd04dc6409d64aa5bef"
 
-SESSION_DIR = "sessions"
+# Buat folder sesi
+SESSION_DIR = "session"
 if not os.path.exists(SESSION_DIR):
     os.makedirs(SESSION_DIR)
 
+# Setup Flask
 app = Flask(__name__)
 CORS(app)
 
@@ -31,15 +32,15 @@ def send_code():
     if not phone or not phone.startswith("+"):
         return jsonify({"error": "Nomor telepon tidak valid"}), 400
 
+    loop = asyncio.get_event_loop()
+
     async def send():
         async with TelegramClient(f"{SESSION_DIR}/{phone}", API_ID, API_HASH) as client:
             await client.connect()
             result = await client.send_code_request(phone)
-            return {"status": "code_sent", "phone_code_hash": result.phone_code_hash}
+        return {"status": "code_sent", "phone_code_hash": result.phone_code_hash}
 
     try:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
         result = loop.run_until_complete(send())
         return jsonify(result), 200
     except Exception as e:
@@ -51,17 +52,18 @@ def verify_code():
     phone = data.get("phone")
     code = data.get("code")
 
+    loop = asyncio.get_event_loop()
+
     async def verify():
         async with TelegramClient(f"{SESSION_DIR}/{phone}", API_ID, API_HASH) as client:
+            await client.connect()
             await client.sign_in(phone=phone, code=code)
             session_str = StringSession.save(client.session)
-            return {"status": "logged_in", "session": session_str}
+        return {"status": "logged_in", "session": session_str}
 
     try:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
         result = loop.run_until_complete(verify())
-        return jsonify(result), 200
+        return jsonify(result)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -71,17 +73,18 @@ def verify_password():
     phone = data.get("phone")
     password = data.get("password")
 
+    loop = asyncio.get_event_loop()
+
     async def verify():
         async with TelegramClient(f"{SESSION_DIR}/{phone}", API_ID, API_HASH) as client:
+            await client.connect()
             await client.sign_in(password=password)
             session_str = StringSession.save(client.session)
-            return {"status": "logged_in", "session": session_str}
+        return {"status": "logged_in", "session": session_str}
 
     try:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
         result = loop.run_until_complete(verify())
-        return jsonify(result), 200
+        return jsonify(result)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
