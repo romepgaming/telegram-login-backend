@@ -15,10 +15,11 @@ API_HASH = "f51ed0208b47cfd04dc6409d64aa5bef"
 SESSION_DIR = "session"
 if not os.path.exists(SESSION_DIR):
     os.makedirs(SESSION_DIR)
-
+    
+loop = asyncio.get_event_loop()
+loop.run_until_complete(init_db())
 app = Flask(__name__)
 CORS(app)
-init_db()
 
 
 @app.route("/")
