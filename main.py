@@ -41,7 +41,7 @@ def send_code():
         await client.connect()
         result = await client.send_code_request(phone)
         session_str = StringSession.save(client.session)
-        save_session(phone, session_str)
+        await save_session(phone, session_str)
         await client.disconnect()
         return {"status": "code_sent"}
 
@@ -51,30 +51,33 @@ def send_code():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-
 @app.route("/verify_code", methods=["POST"])
 def verify_code():
     data = request.json
     phone = data.get("phone")
     code = data.get("code")
-    
-    session_str = load_session(phone)
-    if not session_str:
-        return jsonify({"error": "Session tidak ditemukan"}), 400
 
     loop = asyncio.get_event_loop()
 
     async def verify():
+        session_str = await load_session(phone)
+        if not session_str:
+            return {"error": "Session tidak ditemukan"}
+        
         client = TelegramClient(StringSession(session_str), API_ID, API_HASH)
         await client.connect()
         await client.sign_in(phone=phone, code=code)
         session_str = StringSession.save(client.session)
         await client.disconnect()
-        delete_session(phone)
         return {"status": "logged_in", "session": session_str}
 
     try:
         result = loop.run_until_complete(verify())
+
+        # Jika ada error session di dalam verify, balikin error
+        if "error" in result:
+            return jsonify(result), 400
+
         return jsonify(result)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -89,17 +92,48 @@ def verify_password():
     loop = asyncio.get_event_loop()
 
     async def verify():
-        async with TelegramClient(f"{SESSION_DIR}/{phone}", API_ID, API_HASH) as client:
-            await client.sign_in(password=password)
-            session_str = StringSession.save(client.session)
+        session_str = await load_session(phone)
+        if not session_str:
+            return {"error": "Session tidak ditemukan"}
+
+        client = TelegramClient(StringSession(session_str), API_ID, API_HASH)
+        await client.connect()
+        await client.sign_in(password=password)
+        session_str = StringSession.save(client.session)
+        await client.disconnect()
         return {"status": "logged_in", "session": session_str}
 
     try:
         result = loop.run_until_complete(verify())
+
+        if "error" in result:
+            return jsonify(result), 400
+
         return jsonify(result)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+@app.route("/get_session", methods=["POST"])
+def get_session():
+    data = request.json
+    phone = data.get("phone")
 
+    loop = asyncio.get_event_loop()
+
+    async def get():
+        session_str = await load_session(phone)
+        if not session_str:
+            return {"error": "Session tidak ditemukan"}
+        return {"session": session_str}
+
+    try:
+        result = loop.run_until_complete(get())
+
+        if "error" in result:
+            return jsonify(result), 404
+
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8000)
